@@ -1,0 +1,46 @@
+#standardSQL
+SELECT
+  CONCAT(clientid, CAST(visitid AS string)) AS userid_visitid,
+  clientid AS usuario,
+  visitid AS visita,
+  date,
+  -- totals.timeonsite AS time,
+   totals.totaltransactionrevenue AS amount,
+  (SELECT MAX(hitnumber) FROM UNNEST(hits)) AS visit_max_hit,
+  (SELECT MAX(hitnumber) FROM UNNEST(hits) WHERE transaction.transactionrevenue>0) AS conversion_max_hit,
+  CASE
+    WHEN REGEXP_CONTAINS(trafficSource.medium, r'.*cpc.*') THEN 'SEM'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*dfa.*|.*dbm.*')
+  AND REGEXP_CONTAINS(trafficSource.medium, r'.*cpm.*') THEN 'DISPLAY'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*instagram.*|.*facebook.*|.*twitter.*|t.co|t.me|away.vk.com.*') 
+		AND REGEXP_CONTAINS(trafficSource.medium, r'.*owned.*') 
+  OR REGEXP_CONTAINS(trafficSource.source, r'.*instagram.*|.*facebook.*|.*twitter.*|.*pinterest.*') THEN 'SOCIAL MEDIA (NON PAID)'
+	WHEN REGEXP_CONTAINS(trafficSource.campaign, r'.*AFF*')
+  OR REGEXP_CONTAINS(trafficSource.source, r'.*chollo.*|.*kimovil.*|.*colectivos_vip.*|.*localoo.*|.*tiendeo.*|.*ofertia.*') THEN 'AFILIACION'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'vod') 
+  OR REGEXP_CONTAINS(trafficSource.medium, r'.*paid_video.*') THEN 'PAID VIDEO'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*[N|n]ewsletter.*|[E|e]mail')
+  OR REGEXP_CONTAINS(trafficSource.medium, r'.*[N|n]ewsletter.*') THEN 'EMAIL MARKETING'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*[a|A]utomatic.*') 
+  OR REGEXP_CONTAINS(trafficSource.medium, r'.*[a|A]utomatic.*') THEN 'EMAIL AUTOMATICO'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*push.*|.*sms.*')
+  AND REGEXP_CONTAINS(trafficSource.medium, r'push.*|.*sms.*') THEN 'SMS/PUSH'
+    WHEN REGEXP_CONTAINS(trafficSource.medium, r'[A|a]pp|from-App') THEN 'APP MI CARREFOUR'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*[y|Y]outube.*')
+  OR REGEXP_CONTAINS(trafficSource.medium, r'[v|V]ideo') THEN 'NON PAID VIDEO'
+    WHEN trafficSource.source = '(direct)' AND trafficSource.medium = '(none)' THEN 'DIRECTO'
+    WHEN trafficSource.medium = 'organic' THEN 'ORGANICO (SEO)'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'carrefour|inbenta|nolim|.*pass.*|.*viajes-carrefour.*|.*viajes.carrefour.*') OR REGEXP_CONTAINS(trafficSource.campaign, r'.*contratarpass_.*') THEN 'SITES CARREFOUR'
+    WHEN REGEXP_CONTAINS(trafficSource.source, r'.*blogspot.*|.*ext_og.*|.*forocupon.*|.*proveedor.*|.*site-agencias.*|.*globalleadsgroup.*|savelist')
+  OR trafficSource.medium = 'referral' THEN 'REFERRAL'
+  ELSE
+  'OTROS'
+END
+  AS Canal
+FROM
+  `carrefour-159506.120566275.ga_sessions_*`
+WHERE
+  _table_suffix BETWEEN '20190201'
+  AND '20190228'
+  AND ifnull(totals.bounces,
+    0)=0
