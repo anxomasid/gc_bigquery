@@ -1,0 +1,58 @@
+#standardSQL
+WITH 
+ppal AS (SELECT date, concat(cast(s.fullVisitorId AS STRING), CAST(s.visitId AS STRING)) as visit_id, h.sourcePropertyInfo.sourcePropertyTrackingId AS ecommerce_bu,
+(SELECT hits.sourcePropertyInfo.sourcePropertyTrackingId FROM s.hits WHERE hits.sourcePropertyInfo.sourcePropertyTrackingId IN ('UA-4164580-57', 'UA-4164580-1', 'UA-4164580-35', 'UA-4164580-41') ORDER BY hitNumber, time ASC LIMIT 1) AS first_ecommerce_bu,
+(SELECT COUNT(DISTINCT CONCAT(CAST(hits.hitNumber AS STRING), CAST(hits.time AS STRING))) FROM s.hits WHERE hits.sourcePropertyInfo.sourcePropertyTrackingId IN ('UA-4164580-57', 'UA-4164580-1', 'UA-4164580-35', 'UA-4164580-41')) AS num_ecommerce_hits
+FROM `carrefour-159506.120566275.ga_sessions_*` AS s
+JOIN UNNEST (hits) as h
+WHERE _TABLE_SUFFIX=FORMAT_DATE('%Y%m%d', DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY))
+AND h.sourcePropertyInfo.sourcePropertyTrackingId IN ('UA-4164580-57', 'UA-4164580-1', 'UA-4164580-35', 'UA-4164580-41'))
+
+SELECT date, 
+  CASE first_ecommerce_bu
+  WHEN 'UA-4164580-57' THEN 'bodega'
+  WHEN 'UA-4164580-1' THEN 'non-food'
+  WHEN 'UA-4164580-35' THEN 'food'
+  WHEN 'UA-4164580-41' THEN 'portal'
+  ELSE 'n/a'
+  END AS first_ecommerce_bu,
+  CASE ecommerce_bu
+  WHEN 'UA-4164580-57' THEN 'bodega'
+  WHEN 'UA-4164580-1' THEN 'non-food'
+  WHEN 'UA-4164580-35' THEN 'food'
+  WHEN 'UA-4164580-41' THEN 'portal'
+  ELSE 'n/a'
+  END AS navigation_ecommerce_bu,
+  COUNT(DISTINCT visit_id) AS visits
+FROM ppal
+WHERE num_ecommerce_hits>2
+GROUP BY date, first_ecommerce_bu, navigation_ecommerce_bu
+UNION ALL
+SELECT date, 
+  CASE first_ecommerce_bu
+  WHEN 'UA-4164580-57' THEN 'bodega'
+  WHEN 'UA-4164580-1' THEN 'non-food'
+  WHEN 'UA-4164580-35' THEN 'food'
+  WHEN 'UA-4164580-41' THEN 'portal'
+  ELSE 'n/a'
+  END AS first_ecommerce_bu,
+  CAST('(all)' AS STRING) AS navigation_ecommerce_bu,
+  COUNT(DISTINCT visit_id) AS visits
+FROM ppal
+WHERE num_ecommerce_hits>2
+GROUP BY date, first_ecommerce_bu, navigation_ecommerce_bu
+UNION ALL
+SELECT date, 
+  CASE first_ecommerce_bu
+  WHEN 'UA-4164580-57' THEN 'bodega'
+  WHEN 'UA-4164580-1' THEN 'non-food'
+  WHEN 'UA-4164580-35' THEN 'food'
+  WHEN 'UA-4164580-41' THEN 'portal'
+  ELSE 'n/a'
+  END AS first_ecommerce_bu,
+  CAST(NULL AS STRING) AS navigation_ecommerce_bu,
+  COUNT(DISTINCT visit_id) AS visits
+FROM ppal
+WHERE num_ecommerce_hits<=2
+AND num_ecommerce_hits>0
+GROUP BY date, first_ecommerce_bu, navigation_ecommerce_bu
